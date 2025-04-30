@@ -1,0 +1,15 @@
+name: PlayerShop
+main: me.joff1507.pshop.PlayerShop
+version: 0.1
+api-version: 1.20
+
+commands:
+  pshop:
+    description: Shop admin commands
+    usage: /<command>
+    permission: pshop.admin
+
+permissions:
+  pshop.admin:
+    description: Admin command access
+    default: op
