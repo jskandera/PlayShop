@@ -1,16 +1,20 @@
 package me.joff1507.pshop.manager;
 
 import me.joff1507.pshop.PlayerShop;
+import me.joff1507.pshop.util.WorldGuardUtils;
+import me.joff1507.pshop.manager.LogUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 
 public class ShopManager {
@@ -33,6 +37,7 @@ public class ShopManager {
         YamlConfiguration config = new YamlConfiguration();
         config.set("region", shopId);
         config.set("owner", playerName != null ? playerName : "");
+        config.set("chests", new ArrayList<>());
         try {
             config.save(file);
             sender.sendMessage(ChatColor.GREEN + "Shop " + shopId + " créé.");
@@ -90,8 +95,14 @@ public class ShopManager {
     }
 
     public boolean isInShopRegion(Player player) {
-        String region = plugin.getConfig().getString("worldguard.region-prefix", "shop_");
-        String playerRegion = region + player.getName().toLowerCase();
-        return plugin.getServer().getPluginManager().isPluginEnabled("WorldGuard");
+        return WorldGuardUtils.isInRegion(player, "shop_");
+    }
+
+    public void logTransaction(Player buyer, String itemName, double price, int quantity, String seller) {
+        LogUtils.log(buyer.getName() + " a acheté " + quantity + "x " + itemName + " pour " + price + "$ à " + seller);
+    }
+
+    public File getShopFile(String shopId) {
+        return new File(shopFolder, shopId + ".yml");
     }
 }
