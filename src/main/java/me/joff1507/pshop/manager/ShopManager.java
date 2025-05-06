@@ -95,7 +95,7 @@ public class ShopManager {
     }
 
     public boolean isInShopRegion(Player player) {
-        return WorldGuardUtils.isInRegion(player, "shop_");
+        return WorldGuardUtils.isPlayerInRegionWithPrefix(player, "shop_");
     }
 
     public void logTransaction(Player buyer, String itemName, double price, int quantity, String seller) {

@@ -1,0 +1,9 @@
+me\joff1507\pshop\manager\LogUtils.class
+me\joff1507\pshop\manager\ShopManager.class
+me\joff1507\pshop\gui\ShopGUI$ShopSetupResult.class
+me\joff1507\pshop\manager\HologramManager.class
+me\joff1507\pshop\command\CommandHandler.class
+me\joff1507\pshop\manager\VaultManager.class
+me\joff1507\pshop\gui\ShopGUI.class
+me\joff1507\pshop\PlayerShop.class
+me\joff1507\pshop\util\WorldGuardUtils.class
