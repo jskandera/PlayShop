@@ -1,71 +1,64 @@
 package me.joff1507.pshop.manager;
 
-import me.joff1507.pshop.PlayerShop;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.plugin.Plugin;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class HologramManager {
 
-    private final PlayerShop plugin;
-    private final Map<Location, List<UUID>> holograms = new HashMap<>();
-    private final int refreshTicks = 100;
+    private final Plugin plugin;
+    private final Map<String, UUID> holograms = new HashMap<>();
 
-    public HologramManager(PlayerShop plugin) {
+    public HologramManager(Plugin plugin) {
         this.plugin = plugin;
-        Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllHolograms, 20L, refreshTicks);
     }
 
-    public void createHologram(Location location, List<String> lines) {
-        removeHologram(location);
+    public void spawnHologram(String shopId, Location location, String text) {
+        removeHologram(shopId); // Supprime le précédent si présent
 
-        List<UUID> armorStandIds = new ArrayList<>();
-        World world = location.getWorld();
-        if (world == null) return;
+        ArmorStand armorStand = (ArmorStand) location.getWorld().spawnEntity(location, EntityType.ARMOR_STAND);
+        armorStand.setVisible(false);
+        armorStand.setGravity(false);
+        armorStand.setCustomNameVisible(true);
+        armorStand.setCustomName(text);
+        armorStand.setMarker(true);
+        armorStand.setSmall(true);
 
-        double y = location.getY();
-        for (String line : lines) {
-            Location hologramLocation = new Location(world, location.getX() + 0.5, y, location.getZ() + 0.5);
-            ArmorStand armorStand = (ArmorStand) world.spawnEntity(hologramLocation, EntityType.ARMOR_STAND);
-            armorStand.setVisible(false);
-            armorStand.setCustomName(line);
-            armorStand.setCustomNameVisible(true);
-            armorStand.setGravity(false);
-            armorStand.setMarker(true);
-            armorStandIds.add(armorStand.getUniqueId());
-            y -= 0.25;
-        }
-
-        holograms.put(location, armorStandIds);
+        holograms.put(shopId, armorStand.getUniqueId());
     }
 
-    public void removeHologram(Location location) {
-        List<UUID> ids = holograms.remove(location);
-        if (ids == null) return;
+    public void removeHologram(String shopId) {
+        UUID uuid = holograms.get(shopId);
+        if (uuid == null) return;
 
-        World world = location.getWorld();
-        if (world == null) return;
-
-        for (UUID id : ids) {
-            Entity entity = world.getEntity(id);
-            if (entity instanceof ArmorStand) {
-                entity.remove();
+        for (World world : Bukkit.getWorlds()) {
+            ArmorStand armorStand = (ArmorStand) world.getEntity(uuid);
+            if (armorStand != null && armorStand.getType() == EntityType.ARMOR_STAND) {
+                armorStand.remove();
+                break;
             }
         }
+
+        holograms.remove(shopId);
     }
 
-    public void updateAllHolograms() {
-        for (Map.Entry<Location, List<UUID>> entry : holograms.entrySet()) {
-            Location location = entry.getKey();
-            removeHologram(location);
-            // Ici, tu peux reconstruire dynamiquement les lignes si besoin
-            // Pour le moment on laisse vide ou statique
-            createHologram(location, Collections.singletonList("§eShop"));
+    public void updateHologram(String shopId, String newText) {
+        UUID uuid = holograms.get(shopId);
+        if (uuid == null) return;
+
+        for (World world : Bukkit.getWorlds()) {
+            ArmorStand armorStand = (ArmorStand) world.getEntity(uuid);
+            if (armorStand != null && armorStand.getType() == EntityType.ARMOR_STAND) {
+                armorStand.setCustomName(newText);
+                break;
+            }
         }
     }
 }
