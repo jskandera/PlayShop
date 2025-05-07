@@ -1,32 +1,40 @@
 package me.joff1507.pshop.manager;
 
-import me.joff1507.pshop.PlayerShop;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
 public class VaultManager {
 
-    private static Economy economy;
+    private static Economy econ = null;
 
-    public static boolean setupEconomy(PlayerShop plugin) {
-        if (Bukkit.getPluginManager().getPlugin("Vault") == null) {
-            plugin.getLogger().severe("Vault plugin not found!");
+    public static boolean setupEconomy() {
+        if (Bukkit.getServer().getPluginManager().getPlugin("Vault") == null) {
             return false;
         }
 
-        RegisteredServiceProvider<Economy> rsp = Bukkit.getServicesManager().getRegistration(Economy.class);
+        RegisteredServiceProvider<Economy> rsp = Bukkit.getServer().getServicesManager().getRegistration(Economy.class);
         if (rsp == null) {
-            plugin.getLogger().severe("No economy provider found via Vault!");
             return false;
         }
 
-        economy = rsp.getProvider();
-        plugin.getLogger().info("Economy provider found: " + economy.getName());
-        return economy != null;
+        econ = rsp.getProvider();
+        return econ != null;
     }
 
-    public static Economy getEconomy() {
-        return economy;
+    public static boolean hasEnough(String playerName, double amount) {
+        if (econ == null) return false;
+        return econ.has(Bukkit.getOfflinePlayer(playerName), amount);
+    }
+
+    public static boolean withdraw(String playerName, double amount) {
+        if (econ == null) return false;
+        return econ.withdrawPlayer(Bukkit.getOfflinePlayer(playerName), amount).transactionSuccess();
+    }
+
+    public static void deposit(String playerName, double amount) {
+        if (econ != null) {
+            econ.depositPlayer(Bukkit.getOfflinePlayer(playerName), amount);
+        }
     }
 }
