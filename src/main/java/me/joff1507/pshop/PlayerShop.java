@@ -1,124 +1,87 @@
-package me.joff1507.pshop.shop;
+package me.joff1507.pshop;
 
-import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
-import me.joff1507.pshop.PlayerShop;
-import me.joff1507.pshop.utils.WorldGuardUtils;
+import me.joff1507.pshop.command.CommandHandler;
+import me.joff1507.pshop.manager.*;
+import me.joff1507.pshop.util.WorldGuardUtils;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.OfflinePlayer;
-import org.bukkit.block.Block;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Player;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.*;
+public class PlayerShop extends JavaPlugin {
 
-public class ShopManager {
+    private static PlayerShop instance;
+    private ShopManager shopManager;
+    private VaultManager vaultManager;
+    private HologramManager hologramManager;
+    private LogUtils logUtils;
 
-    private final PlayerShop plugin;
-    private final Map<String, Shop> shops = new HashMap<>();
-    private final File shopFolder;
-
-    public ShopManager(PlayerShop plugin) {
-        this.plugin = plugin;
-        this.shopFolder = new File(plugin.getDataFolder(), "shops");
-        if (!shopFolder.exists()) {
-            shopFolder.mkdirs();
-        }
-        loadShops();
+    public static PlayerShop getInstance() {
+        return instance;
     }
 
-    public void loadShops() {
-        File[] files = shopFolder.listFiles((dir, name) -> name.endsWith(".yml"));
-        if (files == null) return;
+    @Override
+    public void onEnable() {
+        instance = this;
 
-        for (File file : files) {
-            YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-            String id = file.getName().replace(".yml", "");
-            String regionId = "shop_" + id;
+        // Load config
+        saveDefaultConfig();
+        logUtils = new LogUtils(this);
+        logUtils.log("&aConfiguration loaded");
 
-            // Vérifie l'existence de la région WorldGuard correspondante
-            if (!WorldGuardUtils.regionExists(regionId)) {
-                plugin.getLogger().warning("La région WorldGuard '" + regionId + "' est introuvable pour le shop '" + id + "'.");
-                continue;
-            }
-
-            OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(config.getString("owner")));
-            List<Location> chests = new ArrayList<>();
-
-            List<String> chestStrings = config.getStringList("chests");
-            for (String chestStr : chestStrings) {
-                String[] parts = chestStr.split(",");
-                if (parts.length == 4) {
-                    Location loc = new Location(
-                            Bukkit.getWorld(parts[0]),
-                            Integer.parseInt(parts[1]),
-                            Integer.parseInt(parts[2]),
-                            Integer.parseInt(parts[3])
-                    );
-                    chests.add(loc);
-                }
-            }
-            Shop shop = new Shop(id, owner, chests);
-            shops.put(id, shop);
-        }
-    }
-
-    public void saveShop(Shop shop) {
-        File file = new File(shopFolder, shop.getId() + ".yml");
-        YamlConfiguration config = new YamlConfiguration();
-        config.set("owner", shop.getOwner().getUniqueId().toString());
-
-        List<String> chestStrings = new ArrayList<>();
-        for (Location loc : shop.getChests()) {
-            chestStrings.add(loc.getWorld().getName() + "," + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ());
-        }
-        config.set("chests", chestStrings);
-
-        try {
-            config.save(file);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public Shop getShop(String id) {
-        return shops.get(id);
-    }
-
-    public boolean createShop(String id, Player owner) {
-        String regionId = "shop_" + id;
-
-        if (!WorldGuardUtils.regionExists(regionId)) {
-            owner.sendMessage(ChatColor.RED + "La région '" + regionId + "' n'existe pas dans WorldGuard.");
-            return false;
+        // Setup dependencies
+        if (!setupVault()) {
+            logUtils.log("&cVault not found! Disabling plugin.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
         }
 
-        if (shops.containsKey(id)) return false;
-        Shop shop = new Shop(id, owner, new ArrayList<>());
-        shops.put(id, shop);
+        if (!WorldGuardUtils.init()) {
+            logUtils.log("&cWorldGuard not found or incompatible! Disabling plugin.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
 
-        // Mise à jour du propriétaire dans WorldGuard
-        WorldGuardUtils.setRegionOwner(regionId, owner);
+        // Initialize managers
+        vaultManager = new VaultManager(this);
+        shopManager = new ShopManager(this);
+        hologramManager = new HologramManager(this);
 
-        saveShop(shop);
-        return true;
+        // Register command
+        CommandHandler commandHandler = new CommandHandler(this);
+        getCommand("pshop").setExecutor(commandHandler);
+        getCommand("pshop").setTabCompleter(commandHandler);
+
+        logUtils.log("&aPlayerShop enabled");
     }
 
-    public boolean deleteShop(String id) {
-        if (!shops.containsKey(id)) return false;
-        shops.remove(id);
-        File file = new File(shopFolder, id + ".yml");
-        return file.delete();
+    @Override
+    public void onDisable() {
+        if (shopManager != null) shopManager.saveShops();
+        logUtils.log("&cPlayerShop disabled");
     }
 
-    public boolean isInShopRegion(Player player) {
-        return WorldGuardUtils.isInRegion(player, "shop_");
+    private boolean setupVault() {
+        return Bukkit.getPluginManager().getPlugin("Vault") != null;
     }
 
-    public Collection<Shop> getAllShops() {
-        return shops.values();
+    public ShopManager getShopManager() {
+        return shopManager;
+    }
+
+    public VaultManager getVaultManager() {
+        return vaultManager;
+    }
+
+    public HologramManager getHologramManager() {
+        return hologramManager;
+    }
+
+    public LogUtils getLogUtils() {
+        return logUtils;
+    }
+
+    @Override
+    public FileConfiguration getConfig() {
+        return super.getConfig();
     }
 }
