@@ -2,74 +2,101 @@ package me.joff1507.pshop.command;
 
 import me.joff1507.pshop.PlayerShop;
 import me.joff1507.pshop.manager.ShopManager;
-import org.bukkit.ChatColor;
+import me.joff1507.pshop.manager.LogUtils;
+import me.joff1507.pshop.util.WorldGuardUtils;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-public class CommandHandler implements CommandExecutor {
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+public class CommandHandler implements CommandExecutor, TabCompleter {
+
     private final PlayerShop plugin;
-    private final ShopManager manager;
+    private final ShopManager shopManager;
+    private final LogUtils log;
 
     public CommandHandler(PlayerShop plugin) {
         this.plugin = plugin;
-        this.manager = plugin.getShopManager();
+        this.shopManager = plugin.getShopManager();
+        this.log = plugin.getLogUtils();
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length == 0) {
-            sender.sendMessage(ChatColor.YELLOW + "/pshop <create|assign|unassign|list|reload>");
+        if (!(sender instanceof Player)) {
+            log.message(sender, "&cOnly players can use this command.");
             return true;
         }
 
-        String sub = args[0].toLowerCase();
+        Player player = (Player) sender;
 
-        switch (sub) {
-            case "create":
-                if (!sender.hasPermission("pshop.admin")) return noPerm(sender);
-                if (args.length == 2) {
-                    manager.createShop(args[1], null, sender);
-                } else if (args.length == 3) {
-                    manager.createShop(args[1], args[2], sender);
-                } else {
-                    sender.sendMessage(ChatColor.RED + "Usage: /pshop create <shop_id> [joueur]");
-                }
-                return true;
-            case "assign":
-                if (!sender.hasPermission("pshop.admin")) return noPerm(sender);
-                if (args.length == 3) {
-                    manager.assignShop(args[1], args[2], sender);
-                } else {
-                    sender.sendMessage(ChatColor.RED + "Usage: /pshop assign <shop_id> <joueur>");
-                }
-                return true;
-            case "unassign":
-                if (!sender.hasPermission("pshop.admin")) return noPerm(sender);
-                if (args.length == 2) {
-                    manager.unassignShop(args[1], sender);
-                } else {
-                    sender.sendMessage(ChatColor.RED + "Usage: /pshop unassign <shop_id>");
-                }
-                return true;
-            case "list":
-                if (!sender.hasPermission("pshop.admin")) return noPerm(sender);
-                manager.listShops(sender);
-                return true;
-            case "reload":
-                if (!sender.hasPermission("pshop.admin")) return noPerm(sender);
-                plugin.reloadConfig();
-                sender.sendMessage(ChatColor.GREEN + "Configuration rechargée.");
-                return true;
-            default:
-                sender.sendMessage(ChatColor.RED + "Commande inconnue: " + sub);
-                return true;
+        if (args.length == 0) {
+            log.message(player, "&eUsage: /pshop <create|remove|assign|unassign> <id>");
+            return true;
         }
+
+        String subcommand = args[0].toLowerCase();
+
+        switch (subcommand) {
+            case "create":
+                if (args.length < 2) {
+                    log.message(player, "&cUsage: /pshop create <id>");
+                    return true;
+                }
+                String createId = args[1];
+                if (!WorldGuardUtils.regionExists(player.getWorld(), "shop_" + createId)) {
+                    log.message(player, "&cLa région 'shop_" + createId + "' n'existe pas.");
+                    return true;
+                }
+                shopManager.createShop(player, createId);
+                break;
+
+            case "remove":
+                if (args.length < 2) {
+                    log.message(player, "&cUsage: /pshop remove <id>");
+                    return true;
+                }
+                shopManager.removeShop(player, args[1]);
+                break;
+
+            case "assign":
+                if (args.length < 3) {
+                    log.message(player, "&cUsage: /pshop assign <id> <player>");
+                    return true;
+                }
+                shopManager.assignShop(player, args[1], args[2]);
+                break;
+
+            case "unassign":
+                if (args.length < 2) {
+                    log.message(player, "&cUsage: /pshop unassign <id>");
+                    return true;
+                }
+                shopManager.unassignShop(player, args[1]);
+                break;
+
+            default:
+                log.message(player, "&cUnknown subcommand. Try: create, remove, assign, unassign.");
+        }
+
+        return true;
     }
 
-    private boolean noPerm(CommandSender sender) {
-        sender.sendMessage(ChatColor.RED + "Vous n'avez pas la permission d'utiliser cette commande.");
-        return true;
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 1) {
+            return Arrays.asList("create", "remove", "assign", "unassign");
+        }
+
+        if (args.length == 2 && !args[0].equalsIgnoreCase("assign")) {
+            return shopManager.getShopIds();
+        }
+
+        return Collections.emptyList();
     }
 }
